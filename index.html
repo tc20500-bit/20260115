@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>救援秦得參：行動示範版</title>
+<style>
+  /* --- 基礎設定 --- */
+  body { background: #2c3e50; color: white; text-align: center; font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding-bottom: 20px; -webkit-tap-highlight-color: transparent; }
+  
+  /* --- 頂部資訊列 (手機版優化) --- */
+  .info-bar { background: rgba(0,0,0,0.9); width: 100%; padding: 10px 0; display: flex; justify-content: space-around; font-size: 0.9em; position: fixed; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.5); border-bottom: 2px solid #f39c12; }
+  .status-box { padding: 5px 8px; border-radius: 5px; background: #34495e; border: 1px solid #555; display: flex; flex-direction: column; align-items: center; }
+  .status-val { font-size: 1.2em; font-weight: bold; margin-top: 2px; }
+  .highlight-red { color: #ff6b6b; }
+  
+  h1 { margin-top: 80px; font-size: 1.5em; text-shadow: 2px 2px 4px black; letter-spacing: 1px; width: 90%; }
+  
+  /* --- 卡片區域 (RWD 自動折行) --- */
+  .table { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; width: 95%; max-width: 900px; padding-bottom: 120px; /* 預留底部空間給操作區 */ }
+  .target-card { width: 30%; max-width: 130px; aspect-ratio: 2/3; border-radius: 8px; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.5); transition: transform 0.3s; pointer-events: none; }
+  .target-card img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; }
+  .card-label { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); border-radius: 0 0 8px 8px; padding: 3px 0; font-size: 0.8em; z-index: 2; }
+
+  /* --- 底部操作區 (固定在下方，方便單手操作) --- */
+  .hand-area { position: fixed; bottom: 0; width: 100%; background: rgba(44, 62, 80, 0.95); padding: 15px; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.5); border-top: 1px solid rgba(255,255,255,0.1); z-index: 90; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
+  
+  .btn { padding: 12px 0; width: 90%; font-size: 1.2em; background: linear-gradient(to right, #e67e22, #d35400); color: white; border: none; cursor: pointer; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-weight: bold; transition: transform 0.1s; }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { background: #7f8c8d; }
+
+  /* --- 事件彈窗 (手機版優化) --- */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+  .event-card { background: #222; width: 85%; max-width: 400px; border-radius: 15px; padding: 20px; border: 2px solid #555; text-align: center; position: relative; animation: popUp 0.3s ease-out; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
+  
+  .state-emergency { border-color: #c0392b; background: #2c0b0b; }
+  
+  .event-img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 15px; border: 1px solid #444; }
+  .event-title { font-size: 1.4em; color: #f1c40f; margin-bottom: 10px; font-weight: bold; }
+  .event-desc { font-size: 1em; line-height: 1.5; color: #ddd; margin-bottom: 15px; text-align: left; }
+  .close-btn { background: #3498db; color: white; border: none; padding: 10px 30px; border-radius: 50px; font-size: 1em; cursor: pointer; width: 100%; }
+
+  @keyframes popUp { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  /* --- 結局彈窗 --- */
+  .end-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 300; flex-direction: column; align-items: center; justify-content: center; padding: 30px; box-sizing: border-box; }
+  .end-modal h2 { font-size: 2em; margin-bottom: 20px; }
+  .end-modal p { font-size: 1.1em; line-height: 1.6; color: #ccc; max-width: 500px; }
+  .win-text { color: #2ecc71; }
+  .lose-text { color: #e74c3c; }
+
+</style>
+</head>
+<body>
+
+  <div class="info-bar">
+    <div class="status-box"><div>⏳ 回合</div><div id="turn-count" class="status-val highlight-red">20</div></div>
+    <div class="status-box"><div>🚨 警報</div><div id="next-crisis" class="status-val">3</div></div>
+    <div class="status-box"><div>❤️ 進度</div><div class="status-val"><span id="progress-count">0</span>/5</div></div>
+  </div>
+
+  <h1>救援秦得參</h1>
+
+  <div class="table">
+    <div class="target-card"><img id="img0" src="bad1.jpeg"><div class="card-label">經濟</div></div>
+    <div class="target-card"><img id="img1" src="bad2.jpeg"><div class="card-label">健康</div></div>
+    <div class="target-card"><img id="img2" src="bad3.jpeg"><div class="card-label">情感</div></div>
+    <div class="target-card"><img id="img3" src="bad4.jpeg"><div class="card-label">性別</div></div>
+    <div class="target-card"><img id="img4" src="bad5.jpeg"><div class="card-label">尊嚴</div></div>
+  </div>
+
+  <div class="hand-area">
+    <button id="draw-btn" class="btn" onclick="playTurn()">🔮 探索命運 (抽牌)</button>
+  </div>
+
+  <div id="event-modal" class="modal-overlay">
+    <div id="event-card-box" class="event-card">
+      <h3 id="event-title" class="event-title">標題</h3>
+      <img id="event-img" class="event-img" src="">
+      <p id="event-desc" class="event-desc">內容</p>
+      <div id="effect-container" style="margin-bottom:15px; text-align:left;"></div>
+      <button class="close-btn" onclick="closeEvent()">確認</button>
+    </div>
+  </div>
+
+  <div id="end-modal" class="end-modal">
+    <h2 id="end-title"></h2>
+    <p id="end-desc"></p>
+    <button class="btn" style="margin-top:20px;" onclick="location.reload()">🔄 重新挑戰</button>
+  </div>
+
+<script>
+  // 資料庫 (可自行擴充)
+  const normalEvents = [
+    { type: 'good', target: 0, title: "賣菜生意佳", desc: "運氣不錯，賺了一塊多錢，終於可以糴些米回家了。", img: "card1.jpeg" },
+    { type: 'good', target: 2, title: "親情的溫暖", desc: "獲得親戚支援的金花一支，雪中送炭的溫暖。", img: "card2.jpeg" },
+    { type: 'good', target: 1, title: "穿越：瘧疾根除", desc: "【現代醫療】時空穿越！台灣醫療進步，瘧疾不再是絕症。", img: "card6.jpeg" },
+    { type: 'bad', target: 4, title: "歷史：巡警辱罵", desc: "「畜生！」無理的巡警在街頭公然羞辱，這是殖民體制下最赤裸的暴力。", img: "card3.jpeg" },
+    { type: 'bad', target: 0, title: "歷史：度量衡改正", desc: "新的度量衡規則實施，舊的稱仔被沒收，生計斷絕。", img: "card5.jpeg" },
+    { type: 'bad', target: 0, title: "當代：移工仲介債務", desc: "【移工議題】背負巨額仲介費，工作前兩年幾乎都在還債。", img: "card1.jpeg" },
+    { type: 'bad', target: 3, title: "當代：職場天花板", desc: "【性別平權】女性在職場升遷仍面臨隱形阻礙。", img: "card5.jpeg" }
+  ];
+
+  const stateEvents = [
+    { type: 'bad', target: [0, 1], title: "⚠️ 強烈地震", desc: "突發強震襲擊！房屋倒塌，基礎建設受損，人民面臨生存考驗。", img: "card4.jpeg" },
+    { type: 'bad', target: [4, 2], title: "⚠️ 宣佈戒嚴", desc: "政府以國家安全為由宣佈戒嚴，禁止集會結社。社會氛圍肅殺。", img: "card3.jpeg" },
+    { type: 'bad', target: [0], title: "⚠️ 經濟恐慌", desc: "受到世界局勢影響，物價飛漲，貨幣貶值。失業率飆升。", img: "card5.jpeg" }
+  ];
+
+  let maxTurns = 20;
+  let currentTurn = maxTurns;
+  let status = [false, false, false, false, false]; 
+  let gameActive = true;
+  let triggerInterval = 3; 
+
+  function updateInfo() {
+    let progress = status.filter(Boolean).length;
+    document.getElementById("progress-count").innerText = progress;
+    document.getElementById("turn-count").innerText = currentTurn;
+    let turnsPlayed = maxTurns - currentTurn;
+    let turnsUntilCrisis = triggerInterval - (turnsPlayed % triggerInterval);
+    if (turnsPlayed > 0 && turnsPlayed % triggerInterval === 0) turnsUntilCrisis = 3;
+    document.getElementById("next-crisis").innerText = turnsUntilCrisis;
+  }
+
+  function flipCard(id, makeGood) {
+    status[id] = makeGood;
+    let img = document.getElementById("img" + id);
+    let fileNum = id + 1; 
+    img.src = (makeGood ? "good" : "bad") + fileNum + ".jpeg";
+  }
+
+  function playTurn() {
+    if(!gameActive) return;
+    currentTurn--;
+    let turnsPlayed = maxTurns - currentTurn;
+    let evt = null;
+    let isStateEvent = false;
+
+    if (turnsPlayed > 0 && turnsPlayed % triggerInterval === 0) {
+        let randIndex = Math.floor(Math.random() * stateEvents.length);
+        evt = stateEvents[randIndex];
+        isStateEvent = true;
+    } else {
+        let randIndex = Math.floor(Math.random() * normalEvents.length);
+        evt = normalEvents[randIndex];
+    }
+
+    // 顯示事件彈窗
+    let modal = document.getElementById("event-modal");
+    let cardBox = document.getElementById("event-card-box");
+    
+    if(isStateEvent) cardBox.classList.add("state-emergency");
+    else cardBox.classList.remove("state-emergency");
+
+    document.getElementById("event-img").src = evt.img;
+    document.getElementById("event-title").innerText = evt.title;
+    document.getElementById("event-desc").innerText = evt.desc;
+    
+    // 處理效果
+    let container = document.getElementById("effect-container");
+    container.innerHTML = "";
+    
+    let targets = Array.isArray(evt.target) ? evt.target : [evt.target];
+    let targetNames = ["經濟","健康","情感","性別","尊嚴"];
+
+    targets.forEach(targetIndex => {
+        let span = document.createElement("div");
+        span.style.padding = "5px";
+        span.style.marginBottom = "5px";
+        span.style.borderRadius = "4px";
+        
+        if (evt.type === 'good') {
+            if (!status[targetIndex]) {
+                flipCard(targetIndex, true);
+                span.innerText = "✨ " + targetNames[targetIndex] + " 救援成功！";
+                span.style.background = "#27ae60";
+            } else {
+                span.innerText = "👌 " + targetNames[targetIndex] + " 維持良好";
+                span.style.background = "#555";
+            }
+        } else {
+            if (status[targetIndex]) {
+                flipCard(targetIndex, false);
+                span.innerText = "💥 " + targetNames[targetIndex] + " 遭受重創！";
+                span.style.background = "#c0392b";
+            } else {
+                span.innerText = "😰 " + targetNames[targetIndex] + " 持續惡化";
+                span.style.background = "#555";
+            }
+        }
+        container.appendChild(span);
+    });
+
+    modal.style.display = "flex";
+  }
+
+  function closeEvent() {
+    document.getElementById("event-modal").style.display = "none";
+    updateInfo();
+    checkGameOver();
+  }
+
+  function checkGameOver() {
+    let progress = status.filter(Boolean).length;
+    if (progress === 5) showEnd(true);
+    else if (currentTurn <= 0) showEnd(false);
+  }
+
+  function showEnd(isWin) {
+    gameActive = false;
+    let modal = document.getElementById("end-modal");
+    modal.style.display = "flex";
+    let title = document.getElementById("end-title");
+    let desc = document.getElementById("end-desc");
+    
+    if(isWin) {
+      title.innerText = "🎉 救援成功！";
+      title.className = "win-text";
+      desc.innerText = "在你的努力下，秦得參獲得了尊嚴。";
+    } else {
+      title.innerText = "🥀 任務失敗";
+      title.className = "lose-text";
+      desc.innerText = "時代的洪流太過無情...但請不要放棄希望。";
+    }
+  }
+
+  updateInfo();
+</script>
+</body>
+</html>
